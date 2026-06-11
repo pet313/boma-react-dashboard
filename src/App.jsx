@@ -767,7 +767,7 @@ function LoginPage({ theme, setTheme }) {
         {/* Form */}
         <div style={{ padding: "40px" }}>
           <div style={{ marginBottom: 28 }}>
-            <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 6, color: "var(--color-text-primary)" }}> Sign In</div>
+            <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 6, color: "var(--color-text-primary)", display: 'flex', alignItems: 'center', gap: 8 }}> <Icon name="LogIn" size={20} color={C.blue} /> Sign In</div>
             <div style={{ fontSize: 14, color: "var(--color-text-secondary)" }}>
               Welcome back! Please enter your credentials to login.
             </div>
@@ -775,21 +775,29 @@ function LoginPage({ theme, setTheme }) {
 
           <div className="login-input-group">
             <FormField label="Employee ID">
-              <input
-                type="text" value={eid} placeholder="e.g 12345"
-                onChange={e => setEid(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && go()}
-                autoComplete="username"
-              />
+              <div style={{ position: "relative" }}>
+                <Icon name="User" size={16} color="var(--color-text-tertiary)" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+                <input
+                  type="text" value={eid} placeholder="e.g 12345"
+                  onChange={e => setEid(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && go()}
+                  autoComplete="username"
+                  style={{ paddingLeft: 40 }}
+                />
+              </div>
             </FormField>
 
             <FormField label="Password">
-              <input
-                type="password" value={pw} placeholder="Type your password"
-                onChange={e => setPw(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && go()}
-                autoComplete="current-password"
-              />
+              <div style={{ position: "relative" }}>
+                <Icon name="Lock" size={16} color="var(--color-text-tertiary)" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+                <input
+                  type="password" value={pw} placeholder="Type your password"
+                  onChange={e => setPw(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && go()}
+                  autoComplete="current-password"
+                  style={{ paddingLeft: 40 }}
+                />
+              </div>
             </FormField>
           </div>
 
@@ -2096,10 +2104,21 @@ function Dashboard({ theme, setTheme }) {
   const { currentUser, logout } = useAuth();
   const [active,    setActive]    = useState("overview");
   const [isCollapsed, setIsCollapsed] = useState(() => localStorage.getItem("sidebar_collapsed") === "true");
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   useEffect(() => {
     localStorage.setItem("sidebar_collapsed", isCollapsed);
   }, [isCollapsed]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile) setIsCollapsed(true);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const [mobs,      setMobs]      = useState([]);
   const [users,     setUsers]     = useState([]);
@@ -2279,7 +2298,7 @@ function Dashboard({ theme, setTheme }) {
   return (
     <div style={{ 
       display: "grid", 
-      gridTemplateColumns: isCollapsed ? "80px 1fr" : "260px 1fr", 
+      gridTemplateColumns: isCollapsed ? (isMobile ? "64px 1fr" : "80px 1fr") : "260px 1fr", 
       minHeight: "100vh", 
       background: "var(--color-background-tertiary)",
       transition: "grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
