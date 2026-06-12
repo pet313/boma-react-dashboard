@@ -492,25 +492,30 @@ function printGRN(grnData, mob) {
 // SIDEBAR
 // ─────────────────────────────────────────────────────────────────────────────
 
-function Sidebar({ active, setActive, currentUser, onLogout, onRefresh, onlineCount, mobCount, isCollapsed, setIsCollapsed }) {
+function Sidebar({ active, setActive, currentUser, onLogout, onRefresh, onlineCount, mobCount, isCollapsed, setIsCollapsed }) { // Removed isOpen, onClose, isMobile props
   return (
-    <div className="sidebar-container" style={{
-      display: "flex", flexDirection: "column",
-      background: "var(--color-sidebar-bg)",
-      backdropFilter: "var(--color-sidebar-blur)",
-      WebkitBackdropFilter: "var(--color-sidebar-blur)",
-      color: "#fff", height: "100vh",
-      position: "sticky", top: 0,
-      boxShadow: "8px 0 32px rgba(0, 0, 0, 0.25)",
-      borderTop: `4px solid ${C.red}`,
-    }}>
+    <div 
+      className="sidebar-container" 
+      style={{
+        display: "flex", flexDirection: "column",
+        background: "var(--color-sidebar-bg)",
+        backdropFilter: "var(--color-sidebar-blur)",
+        WebkitBackdropFilter: "var(--color-sidebar-blur)",
+        color: "#fff", height: "100vh",
+        position: "sticky", top: 0,
+        width: isCollapsed ? 80 : 260,
+        boxShadow: "8px 0 32px rgba(0, 0, 0, 0.25)",
+        borderTop: `4px solid ${C.red}`,
+        transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+      }}
+    >
       <style>{`
         .sidebar-nav::-webkit-scrollbar { display: none; }
         .sidebar-nav { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
       {/* Logo */}
       <div style={{ padding: "28px 24px 24px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ position: "relative", width: 34, height: 34 }}>
              <img 
       src={kmclogo} 
@@ -519,10 +524,10 @@ function Sidebar({ active, setActive, currentUser, onLogout, onRefresh, onlineCo
             boxShadow: `0 4px 12px ${C.red}40`, }} 
      />
           </div>
-          <div>
+          {!isCollapsed && <div className="sidebar-logo-text"> {/* Added class for CSS hiding */}
             <div style={{ color: "#fff", fontWeight: 700, fontSize: 16, lineHeight: 1.2, letterSpacing: "-0.02em" }}>KENYA MEAT COMMISSION</div>
             <div style={{ color: "hsl(41, 100%, 53%)", fontSize: 13 }}>Boma Dashboard</div>
-          </div>
+          </div>}
         </div>
       </div>
 
@@ -624,27 +629,28 @@ function Sidebar({ active, setActive, currentUser, onLogout, onRefresh, onlineCo
 // TOPBAR
 // ─────────────────────────────────────────────────────────────────────────────
 
-function TopBar({ active, onRefresh, theme, setTheme }) {
+function TopBar({ active, onRefresh, theme, setTheme, setIsCollapsed, isCollapsed }) {
   const nav = NAV.find(n => n.id === active);
   return (
     <div style={{
-      padding: "14px 24px",
+      padding: "14px 16px",
       background: "var(--color-background-primary)",
       borderBottom: "0.5px solid var(--color-border-tertiary)",
-      display: "flex", alignItems: "center", justifyContent: "space-between",
+      display: "flex", alignItems: "center", gap: 16
     }}>
+      <Btn onClick={() => setIsCollapsed(!isCollapsed)} variant="default" small icon={isCollapsed ? "PanelLeftOpen" : "PanelLeftClose"} />
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         {nav && <Icon name={nav.icon} size={18} color={C.blue} />}
         <span style={{ fontSize: 16, fontWeight: 500 }}>{nav?.label || ""}</span>
       </div>
-      <div style={{ margin: "auto 0", display: "flex", alignItems: "center", width: 200, height: 50 }}>
-             <img 
-      src={kmcslogan} 
-      alt="KMC slogan" 
-      style={{ width: 200, height: 50, borderRadius: 10,justifyContent: "center",
-             }} 
-     />
-          </div>
+      <div className="kmc-slogan" style={{ margin: "auto", display: "flex", alignItems: "center", width: 200, height: 50 }}> {/* Added class for CSS hiding */}
+               <img 
+        src={kmcslogan} 
+        alt="KMC slogan" 
+        style={{ width: 200, height: 50, borderRadius: 10,justifyContent: "center",
+               }} 
+       />
+            </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <span style={{
           fontSize: 11, padding: "4px 12px", borderRadius: 20,
@@ -734,7 +740,7 @@ function LoginPage({ theme, setTheme }) {
       `}</style>
 
       <div className="login-card" style={{
-        width: 420, 
+        width: 420, // This will be overridden by CSS media query
         background: "var(--color-background-primary)",
         borderRadius: 28, overflow: "hidden",
         boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.15)",
@@ -767,7 +773,7 @@ function LoginPage({ theme, setTheme }) {
         {/* Form */}
         <div style={{ padding: "40px" }}>
           <div style={{ marginBottom: 28 }}>
-            <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 6, color: "var(--color-text-primary)", display: 'flex', alignItems: 'center', gap: 8 }}> <Icon name="LogIn" size={20} color={C.blue} /> Sign In</div>
+            <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 6, color: "var(--color-text-primary)" }}> Sign In</div>
             <div style={{ fontSize: 14, color: "var(--color-text-secondary)" }}>
               Welcome back! Please enter your credentials to login.
             </div>
@@ -775,29 +781,21 @@ function LoginPage({ theme, setTheme }) {
 
           <div className="login-input-group">
             <FormField label="Employee ID">
-              <div style={{ position: "relative" }}>
-                <Icon name="User" size={16} color="var(--color-text-tertiary)" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
-                <input
-                  type="text" value={eid} placeholder="e.g 12345"
-                  onChange={e => setEid(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && go()}
-                  autoComplete="username"
-                  style={{ paddingLeft: 40 }}
-                />
-              </div>
+              <input
+                type="text" value={eid} placeholder="e.g 12345"
+                onChange={e => setEid(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && go()}
+                autoComplete="username"
+              />
             </FormField>
 
             <FormField label="Password">
-              <div style={{ position: "relative" }}>
-                <Icon name="Lock" size={16} color="var(--color-text-tertiary)" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
-                <input
-                  type="password" value={pw} placeholder="Type your password"
-                  onChange={e => setPw(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && go()}
-                  autoComplete="current-password"
-                  style={{ paddingLeft: 40 }}
-                />
-              </div>
+              <input
+                type="password" value={pw} placeholder="Type your password"
+                onChange={e => setPw(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && go()}
+                autoComplete="current-password"
+              />
             </FormField>
           </div>
 
@@ -843,7 +841,7 @@ function OverviewPage({ mobs, chartData }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={s.grid4}>
+      <div className="responsive-grid-4"> {/* Changed to className */}
         <KPI label="Total MOBs"       value={total}   icon="ListTodo" sub="Live from backend" theme="blue" />
         <KPI label="Total Livestock"    value={livestockCount.toLocaleString()} icon="BarChart3" theme="amber" />
         <KPI label="Open MOBs"        value={open}    icon="LockOpen" sub="Accepting livestock" theme="green" />
@@ -851,7 +849,7 @@ function OverviewPage({ mobs, chartData }) {
           sub={failed > 0 ? "Needs attention" : "All delivered"} theme="red" />
       </div>
 
-      <div style={s.grid2}>
+      <div className="responsive-grid-2"> {/* Changed to className */}
         <div style={s.card}>
           <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 14 }}>Monthly livestock intake</div>
           <ResponsiveContainer width="100%" height={200}>
@@ -913,7 +911,7 @@ function OverviewPage({ mobs, chartData }) {
         </div>
       </div>
 
-      <div style={s.grid2}>
+      <div className="responsive-grid-2"> {/* Changed to className */}
         <div style={s.card}>
           <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 14 }}>Species breakdown</div>
           {speciesCountData.length === 0
@@ -1030,7 +1028,7 @@ function GrnPage({ mobs, toast, currentUser }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={s.grid4}>
+      <div className="responsive-grid-4"> {/* Changed to className */}
         <KPI label="GRNs generated"  value={closedMobs.length} icon="FileBadge" theme="black" />
         <KPI label="Email sent"      value={sentCount}    icon="MailCheck"  sub={`${closedMobs.length ? Math.round(sentCount/closedMobs.length*100) : 0}% success`} theme="green" />
         <KPI label="Email failed"    value={failedCount}  icon="MailX"    sub={failedCount > 0 ? "Needs retry" : "All clear"} theme="red" />
@@ -1257,7 +1255,6 @@ function GrnPreview({ data, mob }) {
       <div style={{ marginTop: 12, paddingTop: 8, borderTop: "1px solid #eee", display: "flex", justifyContent: "space-between", fontSize: 10, color: "#888" }}>
         <span>Ref: {d?.grn_number || "PENDING"}</span>
         <span>Generated: {new Date().toLocaleString("en-GB")}</span>
-      
       </div>
     </div>
   );
@@ -1333,8 +1330,7 @@ function MobsPage({ mobs, chartData, loading }) {
         <Icon name="LineChart" color={C.blue} size={18} />
         Aggregated Analytics
       </div>
-      <div style={s.grid4}>
-        <KPI label="Total MOBs"   value={filtered.length}  icon="ListTodo" theme="purple" loading={loading} />
+      <div className="responsive-grid-4"> {/* Changed to className */}
         <KPI label="Open MOBs"    value={open.length}   icon="LockOpen"    sub="Accepting livestock" theme="green" loading={loading} />
         <KPI label="Closed MOBs"  value={closed.length} icon="Lock"         sub="GRN generated" theme="blue" loading={loading} />
         <KPI label="Total Livestock" value={livestockCount.toLocaleString()} icon="BarChart3" theme="amber" loading={loading} />
@@ -1451,7 +1447,7 @@ function MobsPage({ mobs, chartData, loading }) {
             </tr>
           ))}
         />
-      </div>
+    </div>
     </div>
   );
 }
@@ -1468,7 +1464,7 @@ function LivestockPage({ livestock, chartData }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={s.grid4}>
+      <div className="responsive-grid-4"> {/* Changed to className */}
         <KPI label="Total livestock"  value={total.toLocaleString()} icon="BarChart3" theme="blue" />
         <KPI label="Scale-weighed"  value={(total - manual).toLocaleString()} sub={`${total ? Math.round((total-manual)/total*100) : 0}%`} icon="Scale" theme="green" />
         <KPI label="Manual entries" value={manual.toLocaleString()} sub="Audit logged" theme="amber" icon="Edit3" />
@@ -1736,7 +1732,7 @@ function UsersPage({ users, setUsers, toast, loading }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={s.grid4}>
+      <div className="responsive-grid-4"> {/* Changed to className */}
         <KPI label="Total users"      value={users.length}   icon="Users" theme="blue" />
         <KPI label="Active accounts"  value={activeCount}    icon="UserCheck" sub="Can sign in" theme="green" />
         <KPI label="Online now"       value={onlineCount}    icon="Wifi"   sub="Last 5 minutes" theme="amber" />
@@ -1898,7 +1894,7 @@ function PermissionsPage({ users, setUsers, toast }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={s.grid2}>
+      <div className="responsive-grid-2"> {/* Changed to className */}
         <div style={s.card}>
           <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 14 }}>Role capability matrix (Field Officer)</div>
           <DataTable
@@ -1989,7 +1985,7 @@ function LocationsPage({ chartData }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={s.grid3}>
+      <div className="responsive-grid-3"> {/* Changed to className */}
         <KPI label="Total Locations" value={totalLocations} icon="MapPin" theme="purple" />
         <KPI label="Top Boma (Livestock)" value={topLocation.livestock.toLocaleString()} sub={topLocation.name} icon="TrendingUp" theme="green" />
         <KPI label="Total Livestock (All Bomas)" value={totalLivestock.toLocaleString()} icon="BarChart3" theme="blue" />
@@ -2050,7 +2046,7 @@ function SuppliersPage({ suppliers, loading }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={s.grid4}>
+      <div className="responsive-grid-4"> {/* Changed to className */}
         <KPI label="Total suppliers" value={suppliers.length}   icon="Store" theme="blue" loading={loading} />
         <KPI label="With email"      value={withEmail}          icon="Mail"  sub="Can receive GRN" theme="green" loading={loading} />
         <KPI label="Without email"   value={suppliers.length - withEmail} icon="MailX" theme="amber" loading={loading} />
@@ -2104,22 +2100,9 @@ function Dashboard({ theme, setTheme }) {
   const { currentUser, logout } = useAuth();
   const [active,    setActive]    = useState("overview");
   const [isCollapsed, setIsCollapsed] = useState(() => localStorage.getItem("sidebar_collapsed") === "true");
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
   useEffect(() => {
     localStorage.setItem("sidebar_collapsed", isCollapsed);
   }, [isCollapsed]);
-
-  useEffect(() => {
-    const handleResize = () => {
-      const mobile = window.innerWidth < 768;
-      setIsMobile(mobile);
-      if (mobile) setIsCollapsed(true);
-    };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
   const [mobs,      setMobs]      = useState([]);
   const [users,     setUsers]     = useState([]);
   const [suppliers, setSuppliers] = useState([]);
@@ -2296,11 +2279,13 @@ function Dashboard({ theme, setTheme }) {
   };
 
   return (
-    <div style={{ 
-      display: "grid", 
-      gridTemplateColumns: isCollapsed ? (isMobile ? "64px 1fr" : "80px 1fr") : "260px 1fr", 
+  
+    <div className="dashboard-layout" style={{ 
+      display: "grid",
+      gridTemplateColumns: isCollapsed ? "80px 1fr" : "260px 1fr",
       minHeight: "100vh", 
       background: "var(--color-background-tertiary)",
+      background: "var(--color-background-tertiary)", 
       transition: "grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
     }}>
       <Sidebar
@@ -2311,7 +2296,7 @@ function Dashboard({ theme, setTheme }) {
         isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed}
       />
       <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "var(--color-background-tertiary)", overflow: "hidden" }}>
-        <TopBar active={active} onRefresh={loadData} theme={theme} setTheme={setTheme} />
+        <TopBar active={active} onRefresh={loadData} theme={theme} setTheme={setTheme} setIsCollapsed={setIsCollapsed} isCollapsed={isCollapsed} />
         <main style={{ flex: 1, padding: 20, display: "flex", flexDirection: "column", gap: 0 }}>
           {page()}
         </main>
@@ -2390,6 +2375,37 @@ function AppInner() {
           animation: skeleton-pulse 1.5s infinite ease-in-out;
           background: var(--color-border-tertiary);
           border-radius: 4px;
+        }
+
+        /* Responsive Grids */
+        .responsive-grid-4, .responsive-grid-3, .responsive-grid-2 {
+          display: grid;
+          gap: 16px;
+        }
+        .responsive-grid-4 { grid-template-columns: repeat(4, 1fr); }
+        .responsive-grid-3 { grid-template-columns: repeat(3, 1fr); }
+        .responsive-grid-2 { grid-template-columns: repeat(2, 1fr); }
+
+        /* Mobile-specific styles */
+        @media (max-width: 1200px) {
+          .responsive-grid-4 { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 768px) {
+          /* Login Page */
+          .login-card { width: 90% !important; max-width: 420px; }
+
+          /* TopBar */
+          .kmc-slogan { display: none !important; }
+
+          /* Dashboard Grids */
+          .responsive-grid-4 { grid-template-columns: 1fr; }
+          .responsive-grid-3 { grid-template-columns: 1fr; }
+          .responsive-grid-2 { grid-template-columns: 1fr; }
+
+          /* Sidebar - always collapsed on mobile */
+          .sidebar-container { width: 64px !important; }
+          .sidebar-logo-text { display: none !important; }
+          .dashboard-layout { grid-template-columns: 64px 1fr !important; }
         }
       `}</style>
       {isAuthenticated ? <Dashboard theme={theme} setTheme={setTheme} /> : <LoginPage theme={theme} setTheme={setTheme} />}
