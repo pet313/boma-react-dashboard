@@ -15,16 +15,19 @@ export const C = {
 
 export const s = {
   card: {
-    background: "var(--color-background-primary)",
-    border: "0.5px solid var(--color-border-tertiary)",
+    background: "var(--color-card-bg)",
+    backdropFilter: "blur(12px)",
+    WebkitBackdropFilter: "blur(12px)",
+    border: "1px solid var(--color-card-border)",
     borderRadius: "var(--border-radius-lg)",
     padding: "18px 20px",
+    boxShadow: "0 8px 32px 0 rgba(0, 0, 0, 0.06)",
+    transition: "transform 0.3s ease, box-shadow 0.3s ease",
   },
   metric: {
-    border: "1px solid var(--color-border-primary)",
     borderRadius: "var(--border-radius-md)",
     padding: "16px 18px",
-    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255,255,255,0.15)",
+    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
     transition: "transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease",
     position: "relative",
     overflow: "hidden",

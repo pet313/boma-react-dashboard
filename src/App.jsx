@@ -7,13 +7,472 @@ import * as Lucide from "lucide-react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { mobsApi, usersApi, suppliersApi } from "./api";
 import { C, ROLE_META, NAV, FALLBACK_INTAKE, FALLBACK_MONTHS, USER_ROLES, s } from "./utils/constants";
-import { getInitials, extractArray, fmtWeight, fmtDate, fmtTimestamp, getMobLivestockCount, getMobLocation } from "./utils/helpers";
+import { 
+  getInitials, extractArray, fmtWeight, fmtDate, fmtTimestamp, 
+  getMobLivestockCount, getMobLocation, buildMobStatusData, 
+  buildEmailStatusData, buildSpeciesData, buildGenderData, buildWeightData 
+} from "./utils/helpers";
 import kmclogo from './assets/kmclogo.jpg'
 import kmcslogan from './assets/kmcslogan.png'
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PRINT GRN
+// ─────────────────────────────────────────────────────────────────────────────
+
+function printGRN(grnData, mob) {
+  const w = window.open("", "_blank");
+  if (!w) return alert("Allow popups to print GRN");
+  const data      = grnData || mob;
+  const animals   = data.livestock || [];
+  const supplier  = data.supplier  || mob.supplier || {};
+  const officer   = data.officer   || mob.officer  || {};
+
+  // ── QR payload (keep security feature) ──────────────────────────────────
+  const qrData = [
+    `GRN: ${data.grn_number  || mob.grn_number  || 'PENDING'}`,
+    `MOB: ${data.mob_number  || mob.mob_number  || 'N/A'}`,
+    `Supplier: ${supplier.name || 'N/A'}`,
+    `Farmer No: ${supplier.farmer_no || 'N/A'}`,
+    `Weight: ${Number(data.total_weight || mob.total_weight || 0).toFixed(3)} KG`,
+  ].join(' | ');
+
+  // ── Signature rows ───────────────────────────────────────────────────────
+  const sigRows = [
+    'Received By',
+    'Verified By',
+  ].map(label => `
+    <tr>
+      <td class="sig-label-cell">${label}</td>
+      <td class="sig-cell"></td>
+      <td class="sig-cell"></td>
+      <td class="sig-cell"></td>
+    </tr>`).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>GRN - ${data.grn_number || 'PENDING'}</title>
+<style>
+  @page { margin: 8mm 10mm; size: A4 portrait; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 9pt;
+    color: #333;
+    line-height: 1.25;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── Layout helpers ───────────────────────────────────── */
+  .page { padding: 0; }
+  .flex  { display: flex; }
+  .w100  { width: 100%; }
+  .tr    { text-align: right; }
+  .tc    { text-align: center; }
+  .bold  { font-weight: bold; }
+  .upper { text-transform: uppercase; }
+
+  /* ── Header ───────────────────────────────────────────── */
+  .hdr-wrap {
+    display: flex;
+    align-items: flex-start;
+    border-bottom: 2pt solid #000000;
+    padding-bottom: 3mm;
+    margin-bottom: 3mm;
+  }
+  .hdr-logo {
+    width: 22mm;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .hdr-addresses {
+    flex: 1;
+    display: flex;
+    gap: 3mm;
+    font-size: 7pt;
+    line-height: 1.4;
+    padding: 0 3mm;
+  }
+  .hdr-addr-col { flex: 1; }
+  .hdr-addr-col strong { display: block; font-size: 7.5pt; color: #003893; }
+
+  .hdr-ref {
+    width: 52mm;
+    flex-shrink: 0;
+    font-size: 8pt;
+    border: 1pt solid #000000;
+    padding: 2mm;
+  }
+  .hdr-ref table { width: 100%; border-collapse: collapse; }
+  .hdr-ref td { padding: 1mm 1.5mm; vertical-align: top; }
+  .hdr-ref .rlabel { font-weight: bold; white-space: nowrap; width: 22mm; color: #003893; }
+  .hdr-ref .rvalue { border-bottom: 0.5pt solid #000000; font-weight: bold; }
+
+  /* ── Title ────────────────────────────────────────────── */
+  .title-block { margin: 3mm 0 2mm; }
+  .title-org   { font-size: 14pt; font-weight: 900; letter-spacing: 0.5pt; color: #003893; }
+  .title-doc   { font-size: 11pt; font-weight: bold; text-decoration: underline; margin-top: 1mm; color: #C8102E; }
+
+  /* ── Supplier box ─────────────────────────────────────── */
+  .supplier-row {
+    display: flex;
+    gap: 4mm;
+    margin-bottom: 3mm;
+    align-items: stretch;
+  }
+  .supplier-box {
+    flex: 1;
+    border: 1pt solid #000000;
+    padding: 2mm 3mm;
+    font-size: 9pt;
+    font-weight: bold;
+    width:100mm;
+    display: flex;
+    align-items: center;
+  }
+  .date-box {
+    width: 50mm;
+    
+    padding: 2mm 3mm;
+    font-size: 9pt;
+    display: flex;
+    align-items: center;
+    gap: 4mm;
+  }
+  .date-box .dlabel { font-weight: bold; min-width: 12mm; color: #000000; }
+  .date-box .dvalue { flex:1; font-weight: bold; }
+
+  /* ── Farmers copy ─────────────────────────────────────── */
+  .farmers-copy {
+    text-align: center;
+    font-size: 11pt;
+    font-weight: 900;
+    text-decoration: underline;
+    text-transform: uppercase;
+    margin: 3mm 0;
+    letter-spacing: 1pt;
+    color: #C8102E;
+  }
+
+  /* ── Reference row ────────────────────────────────────── */
+  .ref-row-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 0;
+  }
+  .ref-row-table th, .ref-row-table td {
+    border: 0.75pt solid #000000;
+    padding: 1.5mm 2mm;
+    font-size: 8pt;
+    text-align: left;
+  }
+  .ref-row-table th { font-weight: bold; background: #E8EDFF; color: #003893; }
+
+  /* ── Data table ───────────────────────────────────────── */
+  table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 0;
+  }
+  table.data-table th {
+    border: 0.75pt solid #000000;
+    padding: 2mm 2mm;
+    font-weight: bold;
+    font-size: 8pt;
+    text-align: center;
+    background: #003893;
+    color: #fff;
+    vertical-align: middle;
+  }
+  table.data-table td {
+    border: 0.75pt solid #000000;
+    padding: 1.5mm 2mm;
+    font-size: 8.5pt;
+    vertical-align: middle;
+  }
+  .col-no    { width: 8mm;  text-align: center; }
+  .col-unit  { width: 12mm; text-align: center; }
+  .col-code  { width: 14mm; text-align: center; }
+  .col-desc  { text-align: center; }
+  .col-qty   { width: 18mm; text-align: right; }
+  .col-unit-lbl { width: 12mm; text-align: center; font-size: 7pt; color: #003893; font-weight: bold; }
+
+  /* ── Totals ───────────────────────────────────────────── */
+  .totals-section {
+    display: flex;
+    margin-bottom: 3mm;
+  }
+  .totals-right {
+    margin-left: auto;
+    width: 80mm;
+    border-collapse: collapse;
+  }
+  .totals-right td {
+    border: 1pt solid #000000;
+    padding: 2mm 3mm;
+    font-size: 9pt;
+    font-weight: bold;
+    color: #000000;
+  }
+  .totals-right .t-label { text-align: left; width: 42mm; }
+  .totals-right .t-value { text-align: right; }
+  .totals-right .t-unit  { width: 10mm; text-align: center; font-size: 7.5pt; font-weight: normal; }
+
+  /* ── Bottom section ───────────────────────────────────── */
+  .bottom-section {
+    display: flex;
+    gap: 5mm;
+    margin-top: 2mm;
+  }
+
+  /* Signature table (left) */
+  .sig-outer { flex: 1; }
+  .sig-header-row {
+    display: flex;
+    border: 1pt solid #000000;
+    border-bottom: none;
+    background: #E8EDFF;
+  }
+  .sig-header-row .sh-label { flex: 1; padding: 1.5mm 2mm; font-weight: bold; font-size: 8pt; border-right: 0.75pt solid #003893; color: #003893; }
+  .sig-header-row .sh-col   { width: 20mm; text-align: center; padding: 1.5mm 2mm; font-weight: bold; font-size: 8pt; border-right: 0.75pt solid #003893; color: #003893; }
+  .sig-header-row .sh-col:last-child { border-right: none; }
+  table.sig-table { width: 100%; border-collapse: collapse; }
+  table.sig-table td { border: 0.75pt solid #000000; padding: 1.5mm 2mm; font-size: 7.5pt; vertical-align: middle; height: 9mm; }
+  .sig-label-cell { font-size: 7.5pt; color: #C8102E; font-weight: bold; }
+  .sig-cell { width: 20mm; }
+
+  /* Notes (right) */
+  .notes-block {
+    width: 72mm;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3mm;
+  }
+  .notes-box {
+    border: 0.75pt solid #000000;
+    padding: 2mm 3mm;
+    font-size: 7.5pt;
+    line-height: 1.6;
+  }
+  .notes-box p { margin-bottom: 1mm; }
+
+  .verify-row {
+    display: flex;
+    align-items: center;
+    gap: 10mm;
+    margin-top: 5mm;
+  }
+  /* QR */
+  .qr-block { text-align: center; margin-top: 0; }
+  .qr-block img { width: 22mm; height: 22mm; }
+  .qr-block p { font-size: 6pt; color: #555; margin-top: 1mm; }
+
+  /* ── Form footer ──────────────────────────────────────── */
+  .form-footer {
+    margin-top: 6mm;
+    border-top: 1pt solid #3b3b3b;
+    padding-top: 2mm;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 7.5pt;
+    color: #333;
+  }
+
+  @media print {
+    body { -webkit-print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ══════════════════════════════════════════════════════
+       HEADER — logo | addresses | ref box
+  ══════════════════════════════════════════════════════ -->
+  <div class="hdr-wrap">
+
+    <div class="hdr-logo"></div>
+
+    <!-- Three address columns -->
+    <div class="hdr-addresses">
+      <img src="${kmclogo}" style="width: 20mm; height: 20mm; object-fit: contain; margin-right: 3mm;" />
+      <div class="hdr-addr-col">
+        <strong>Headquarters</strong>
+        P.O.Box 2-00204 Athi River<br>
+        Tel: +254 45 6626041/3/4<br>
+        Fax: +254 45 6626520<br>
+        Email: accounts@kenyameat.co.ke
+      </div>
+      <div class="hdr-addr-col">
+        <strong>Landhies RAd Depot</strong>
+        P.O.Box 30414-00100<br>
+        Nairobi GPO<br>
+        Tel: +254 20 2013426/31<br>
+        Fax: +254 20 2013426<br>
+        Email: Landhies@kenyameat.co.ke
+      </div>
+      <div class="hdr-addr-col">
+        <strong>Mombasa Branch</strong>
+        P.O.Box 87080-80100<br>
+        Mombasa GPO<br>
+        Tel: +254 20 3542623<br>
+        Fax: +254 20 3542623<br>
+        Email: kmcmombasa@kenyameat.co.ke
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       TITLE
+  ══════════════════════════════════════════════════════ -->
+  <div class="title-block">
+    <div class="title-org">KENYA MEAT COMMISSION</div>
+    <div class="title-doc">GOODS RECEIVED NOTE</div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       SUPPLIER + DATE ROW
+  ══════════════════════════════════════════════════════ -->
+  <div class="supplier-row" style="margin-top:3mm;">
+    <div class="supplier-box" style="display: block;">
+      <div>Supplier:&nbsp;&nbsp;<span style="text-transform:uppercase;">${supplier.name || 'N/A'}</span></div>
+      <div style="font-size: 8pt; margin-top: 2mm; display: flex; flex-direction: column; gap: 1mm; font-weight: normal;">
+        <span>GRN No: <strong>${data.grn_number || mob.grn_number || 'PENDING'}</strong></span>
+        <span>MOB No: <strong>${data.mob_number || mob.mob_number || 'N/A'}</strong></span>
+        <span>Farmer No: <strong>${supplier.farmer_no || 'N/A'}</strong></span>
+        <span>Boma: <strong>${data.location || mob.location || 'N/A'}</strong></span>
+        <span>ID No: <strong>${supplier.id_number || 'N/A'}</strong></span>
+        <span>Phone: <strong>${supplier.phone || 'N/A'}</strong></span>
+      </div>
+    </div>
+    <div class="date-box">
+      <span class="dlabel">Date</span>
+      <span class="dvalue">${new Date(data.received_date || mob.received_date || Date.now()).toLocaleDateString('en-GB')}</span>
+    </div>
+  </div>
+
+ 
+  <!-- ══════════════════════════════════════════════════════
+       FARMERS COPY
+  ══════════════════════════════════════════════════════ -->
+  <div class="farmers-copy">FARMERS COPY</div>
+
+  <!-- ══════════════════════════════════════════════════════
+       LINE ITEMS TABLE
+       Matches photo: Stores Item No | Unit Code | Item Description | QTY |
+  ══════════════════════════════════════════════════════ -->
+  <table class="data-table" style="margin-top: 2mm;">
+    <thead>
+      <tr>
+        <th class="col-no">Stores™<br>Item No.</th>
+        <th class="col-code">Tag<br>Code</th>
+        <th class="col-unit">Unit</th>
+        <th class="col-desc">Item Description</th>
+        <th class="col-qty">Weight (KG)</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${animals.map((a, i) => {
+        const qty        = Number(a.weight || a.qty || 0);
+        return `<tr>
+          <td class="col-no">${a.item_no || i + 1}</td>
+          <td class="col-code" style="text-align:center;font-weight:bold;">${a.unit_code || a.livestock_number || 'N/A'}</td>
+          <td class="col-unit" style="text-align:center;">KG</td>
+          <td class="col-desc" style="text-align:center;font-weight:bold;">${a.item_description || 'Livestock Entry'}</td>
+          <td class="col-qty">${qty.toFixed(3)}</td>
+        </tr>`;
+      }).join('')}
+      ${animals.length === 0
+        ? '<tr><td colspan="5" style="text-align:center;padding:4mm;">No livestock records attached</td></tr>'
+        : ''}
+    </tbody>
+  </table>
+
+  <!-- ══════════════════════════════════════════════════════
+       TOTALS — right-aligned, matching photo layout
+  ══════════════════════════════════════════════════════ -->
+  <div class="totals-section">
+    <table class="totals-right">
+      <tr>
+        <td class="t-label">Total Weight</td>
+        <td class="t-value">${Number(data.total_weight || mob.total_weight || 0).toFixed(2)}</td>
+        <td class="t-unit">KG</td>
+      </tr>
+      <tr>
+        <td class="t-label">Total Head Count</td>
+        <td class="t-value">${animals.length}</td>
+        <td class="t-unit">HEAD</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       BOTTOM signature table (left) + notes (right)
+  ══════════════════════════════════════════════════════ -->
+  <div class="bottom-section">
+
+    <!-- Signature table  -->
+    <div class="sig-outer">
+      <div class="sig-header-row">
+        <div class="sh-label">1. FOR STORES USE</div>
+        <div class="sh-col">INITIALS</div>
+        <div class="sh-col">SIGNATURE</div>
+        <div class="sh-col">DATE</div>
+      </div>
+      <table class="sig-table">
+        ${sigRows}
+      </table>
+    </div>
+
+    <!-- Notes  -->
+    <div class="notes-block">
+      <div class="notes-box">
+        <p><strong>NOTE</strong></p>
+        <p>1. These are live weights of the livestock as measured at receiving bay.</p>
+        <p>2. This serves as a temporary GRN.</p>
+        <p>3. Unit conversion applied where applicable.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="verify-row">
+    <div class="qr-block">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(qrData)}" />
+      <p><strong>Use the QR code above to verify this GRN</strong></p>
+      <p style="font-size:6pt;color:#888;">${data.grn_number || 'PENDING'}</p>
+    </div>
+    <div style="font-size:7pt; line-height:1.4;">
+      <strong>Receiving Officer:</strong> ${officer.name || 'N/A'}<br>
+     
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       FORM FOOTER
+  ══════════════════════════════════════════════════════ -->
+  <div class="form-footer">
+    <span>System GRN Ref: ${data.grn_number || 'PENDING'}</span>
+    <img src="${kmcslogan}" style="height: 10mm; object-fit: contain;" />
+    <span>KMC Livestock Tracking System &nbsp;|&nbsp; Generated: ${new Date().toLocaleString('en-GB')}</span>
+  </div>
+
+</div>
+<script>window.onload = () => { window.print(); }</script>
+</body></html>`;
+
+  w.document.write(html);
+  w.document.close();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // DESIGN PRIMITIVES
 // ─────────────────────────────────────────────────────────────────────────────
+
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+const PASSWORD_ERROR_MSG = "Password must be at least 8 characters, include uppercase, lowercase, a number and a symbol (@$!%*?&)";
 
 function Icon({ name, size = 18, color, style, className, strokeWidth = 2 }) {
   const LucideIcon = Lucide[name];
@@ -58,74 +517,21 @@ function KPI({ label, value, sub, subColor, icon, theme = "blue", loading }) {
     black:  "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
   };
 
-  const valStr = String(value);
-  const numericPart = valStr.replace(/,/g, '').match(/[\d.]+/);
-  const [displayVal, setDisplayVal] = useState(0);
-
-  useEffect(() => {
-    if (!numericPart) return;
-    const target = parseFloat(numericPart[0]);
-    let start = 0;
-    const duration = 1000;
-    const stepTime = 20;
-    const increment = target / (duration / stepTime);
-
-    const timer = setInterval(() => {
-      start += increment;
-      if (start >= target) {
-        setDisplayVal(target);
-        clearInterval(timer);
-      } else {
-        setDisplayVal(start);
-      }
-    }, stepTime);
-    return () => clearInterval(timer);
-  }, [value]);
-
-  const getDisplay = () => {
-    if (!numericPart) return valStr;
-    const isInt = !valStr.includes(".");
-    const suffix = valStr.split(/[\d.,]+/)[1] || "";
-    const formatted = isInt ? Math.floor(displayVal).toLocaleString() : displayVal.toFixed(1);
-    return `${formatted}${suffix}`;
-  };
-
   return (
     <div
       className="kpi-card"
-      onMouseEnter={e => {
-        e.currentTarget.style.transform = "translateY(-6px) scale(1.03)";
-        e.currentTarget.style.boxShadow = "0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.1)";
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.transform = "translateY(0) scale(1)";
-        e.currentTarget.style.boxShadow = s.metric.boxShadow;
-      }}
       style={{
         ...s.metric, background: themes[theme], display: "flex", flexDirection: "column",
         gap: 4, alignItems: "center", justifyContent: "center", textAlign: "center", minHeight: 110,
         cursor: "default"
       }}
     >
-      <style>{`
-        @keyframes sweep {
-          0% { left: -110%; opacity: 0; }
-          50% { opacity: 1; }
-          100% { left: 120%; opacity: 0; }
-        }
-        .kpi-card:hover .sweep-light { animation: sweep 0.85s ease-in-out; }
-      `}</style>
-      <div className="sweep-light" style={{
-        position: "absolute", top: 0, width: "40%", height: "100%",
-        background: "linear-gradient(to right, transparent, rgba(255,255,255,0.25), transparent)",
-        transform: "skewX(-25deg)", pointerEvents: "none", left: "-110%", opacity: 0
-      }} />
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
         {icon && <Icon name={icon} size={18} color="rgba(255,255,255,0.5)" />}
         <span style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em" }}>{label}</span>
       </div>
-      <div style={{ fontSize: 34, fontWeight: 800, color: "#fff", lineHeight: 1.1, letterSpacing: "-0.02em" }}>
-        {getDisplay()}
+      <div style={{ fontSize: "clamp(24px, 5vw, 34px)", fontWeight: 800, color: "#fff", lineHeight: 1.1, letterSpacing: "-0.02em" }}>
+        {value}
       </div>
       {sub && <div style={{ fontSize: 12, color: "rgba(255,255,255,0.9)", fontWeight: 600 }}>{sub}</div>}
     </div>
@@ -228,12 +634,7 @@ function DataTable({ cols, rows, empty = "No data available." }) {
       border: "1px solid var(--color-border-tertiary)",
       background: "var(--color-background-primary)"
     }}>
-      <style>{`
-        .modern-table tbody tr { transition: background 0.15s ease; }
-        .modern-table tbody tr:hover { background-color: var(--color-background-secondary); }
-        .modern-table tbody tr:last-child td { border-bottom: none; }
-      `}</style>
-      <table className="modern-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <THead cols={cols} />
         <tbody>
           {rows.length === 0
@@ -259,7 +660,8 @@ function Modal({ title, children, onClose, wide }) {
         background: "var(--color-background-primary)",
         borderRadius: "var(--border-radius-lg)",
         border: "0.5px solid var(--color-border-tertiary)",
-        width: wide ? 640 : 440, maxHeight: "90vh",
+        width: "95%",
+        maxWidth: wide ? 640 : 440, maxHeight: "90vh",
         overflow: "hidden", display: "flex", flexDirection: "column",
       }}>
         <div style={{
@@ -306,186 +708,6 @@ function Toast({ msg, type }) {
       {msg}
     </div>
   );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PRINT GRN (opens a real print window)
-// ─────────────────────────────────────────────────────────────────────────────
-
-function printGRN(grnData, mob) {
-  const w = window.open("", "_blank");
-  if (!w) return alert("Allow popups to print GRN");
-  const data = grnData || mob;
-  const animals = data.livestock || [];
-  const supplier = data.supplier || mob.supplier || {};
-  const officer = data.officer || mob.officer || {};
-  
-  // Constructing data string for digital verification
-  const qrData = [
-    `GRN: ${data.grn_number || mob.grn_number || 'PENDING'}`,
-    `MOB: ${data.mob_number || mob.mob_number || 'N/A'}`,
-    `Supplier: ${supplier.name || 'N/A'}`,
-    `Farmer No: ${supplier.farmer_no || 'N/A'}`,
-    `Weight: ${Number(data.total_weight || mob.total_weight || 0).toFixed(3)} KG`,
-    `Value: KES ${Number(data.total_amount || mob.total_amount || 0).toLocaleString()}`,
-    `Date: ${new Date().toLocaleString('en-GB')}`
-  ].join(' | ');
-  
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<title>GRN - ${data.grn_number || mob.grn_number || 'PENDING'}</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10pt; color: #1a1a1a; position: relative; line-height: 1.4; }
-  .page { padding: 15mm 15mm 10mm 15mm; position: relative; z-index: 1; }
-
-  .watermark {
-    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    opacity: 0.05; z-index: 0; width: 450px; pointer-events: none;
-  }
-
-  /* Header */
-  .header-line { 
-    display: flex; justify-content: space-between; align-items: center; 
-    border-bottom: 2.5px solid #003893; padding-bottom: 12px; margin-bottom: 15px;
-    padding-top: 8px;
-  }
-  .logo-section { display: flex; align-items: center; gap: 15px; }
-  .logo-img { height: 60px; width: auto; border-radius: 8px; }
-  .address-section { display: flex; gap: 40px; flex: 1; justify-content: center; font-size: 14pt; line-height: 1.5; color: #2c3e50; text-align: center; }
-  .address-item { padding-right: 0; }
-  .address-item:last-child { border-right: none; padding-right: 0; }
-  .address-item strong { color: #003893; }
-
-  .title-section { text-align: center; margin: 15px 0; padding: 8px 0; }
-  .title-section h1 { font-size: 18pt; font-weight: 900; color: #003893; margin: 0; letter-spacing: 1px; }
-  .title-section h2 { font-size: 11pt; font-weight: 700; color: #C8102E; margin-top: 2px; }
-
-  /* Copy label */
-  .copy-label { text-align: center; font-weight: 800; font-size: 10pt; color: #C8102E; background: #fdf2f2; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 2px; padding: 8px 0; border: 1px solid #f8d7da; border-radius: 4px; }
-
-  /* Meta grid */
-  .meta-grid { display: flex; gap: 12px; margin: 15px 0; }
-  .supplier-box { flex: 1.3; border: 1px solid #000; background: #fcfcfc; padding: 12px; font-size: 9.5pt; line-height: 1.5; }
-  .supplier-box strong { color: #C8102E; }
-  .ref-box { flex: 1; font-size: 9.5pt; }
-  .ref-row { display: flex; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #f0f0f0; }
-  .ref-label { font-weight: 700; width: 32mm; color: #003893; }
-  .ref-value { flex: 1; padding: 0 2mm; font-weight: 600; }
-
-  /* Table */
-  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 9pt; }
-  th { background: #f0f4ff; color: #003893; padding: 14px 10px; font-weight: 800; text-transform: uppercase; font-size: 8.5pt; text-align: left; border: 1px solid #000; letter-spacing: 0.5px; }
-  td { border: 1px solid #000; padding: 16px 10px; }
-  tbody tr:nth-child(even) { background: #fbfbfb; }
-  .text-right { text-align: right; }
-  .text-center { text-align: center; }
-
-  .totals { margin-top: 10px; }
-  .total-row { display: flex; justify-content: flex-end; gap: 12px; font-size: 11pt; font-weight: 900; margin-top: 5px; padding: 10px 8px; color: #003893; }
-  .total-val { width: 40mm; text-align: right; padding-right: 2px; border-bottom: 2px solid #003893; }
-
-  .sig-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 30px; }
-  .sig-box { border: 1px solid #000; padding: 10px; height: 85px; font-size: 8.5pt; display: flex; flex-direction: column; justify-content: space-between; }
-  .sig-label { font-weight: 700; color: #003893; text-transform: uppercase; font-size: 7.5pt; }
-  .footer { margin-top: 40px; font-size: 8pt; border-top: 1px solid #003893; padding-top: 8px; display: flex; justify-content: space-between; color: #666; }
-  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-</style>
-</head>
-<body>
-  <img src="${kmclogo}" class="watermark" />
-  <div class="page">
-    <div class="header-line">
-      <div class="logo-section">
-        <img src="${kmclogo}" class="logo-img" />
-      </div>
-      <div class="address-section">
-        <div class="address-item"><strong>Headquarters</strong><br>P.O Box 2-00204, Athi River<br>+254 45 6626041</div>
-        <div class="address-item"><strong>Nairobi Depot</strong><br>P.O.Box 30414-00100<br>+254 20 2013426</div>
-        <div class="address-item"><strong>Mombasa Branch</strong><br>P.O Box 87080-80100<br>+254 20 3542623</div>
-      </div>
-    </div>
-
-    <div class="title-section">
-      <h1>KENYA MEAT COMMISSION</h1>
-      <h2>GOODS RECEIVED NOTE</h2>
-    </div>
-
-    <div class="copy-label">SUPPLIER'S COPY</div>
-
-    <div class="meta-grid">
-      <div class="supplier-box">
-        <strong>SUPPLIER DETAILS:</strong><br>
-        Name: ${((supplier.name) || 'N/A').toUpperCase()}<br>
-        Farmer No: ${supplier.farmer_no || 'N/A'}<br>
-        ID Number: ${supplier.id_number || 'N/A'}<br>
-        Phone No: ${supplier.phone || 'N/A'}
-      </div>
-      <div class="ref-box">
-        <div class="ref-row"><span class="ref-label">MOB Number:</span><span class="ref-value">${data.mob_number || mob.mob_number || 'N/A'}</span></div>
-        <div class="ref-row"><span class="ref-label">Location:</span><span class="ref-value">${getMobLocation(data) || getMobLocation(mob)}</span></div>
-        <div class="ref-row"><span class="ref-label">Officer:</span><span class="ref-value">${officer.name || 'N/A'}</span></div>
-        <div class="ref-row"><span class="ref-label">Order No:</span><span class="ref-value">${data.order_no || 'N/A'}</span></div>
-      </div>
-    </div>
-
-    <table>
-      <thead>
-        <tr>
-          <th style="width: 8%">#</th>
-          <th style="width: 18%">Tag / Unit Code</th>
-          <th>Item Description</th>
-          <th style="width: 15%" class="text-right">Weight (KG)</th>
-          <th style="width: 18%" class="text-right">Value (KES)</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${animals.map((a, i) => `
-          <tr>
-            <td class="text-center">${a.item_no || i + 1}</td>
-            <td class="text-center">${a.unit_code || a.livestock_number || 'N/A'}</td>
-            <td>${a.item_description || 'Livestock Entry'}</td>
-            <td class="text-right">${Number(a.weight || a.qty || 0).toFixed(3)}</td>
-            <td class="text-right">${Number(a.value || (a.weight * (a.unit_price || 0)) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-          </tr>
-        `).join('')}
-        ${animals.length === 0 ? '<tr><td colspan="6" class="text-center">No livestock records attached</td></tr>' : ''}
-      </tbody>
-    </table>
-
-    <div class="totals">
-      <div class="total-row">
-        <span>TOTAL WEIGHT:</span>
-        <span class="total-val">${Number(data.total_weight || mob.total_weight || 0).toFixed(3)} KG</span>
-      </div>
-      <div class="total-row">
-        <span>TOTAL AMOUNT:</span>
-        <span class="total-val">KES ${Number(data.total_amount || mob.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-      </div>
-    </div>
-
-    <div class="sig-grid">
-      <div class="sig-box"><span class="sig-label">Received By (Measuring Officer):</span><span>Sign/Date: ________________</span></div>
-      <div class="sig-box"><span class="sig-label">Verified By (Audit/Accounts):</span><span>Sign/Date: ________________</span></div>
-      <div class="sig-box"><span class="sig-label">Supplier Signature:</span><span>Sign/Date: ________________</span></div>
-    </div>
-
-    <div style="display: flex; justify-content: center; margin-top: 25px;">
-      <div style="text-align: center;">
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(qrData)}" style="width: 90px; height: 90px;" alt="QR Code" />
-        <div style="font-size: 7.5pt; margin-top: 5px; color: #666; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Scan for Digital Verification</div>
-      </div>
-    </div>
-
-    <div class="footer">
-      <span>System GRN Reference: ${data.grn_number || 'PENDING'}</span>
-      <span>Printed: ${new Date().toLocaleString('en-GB')}</span>
-      <span>LTS Dashboard v3.0</span>
-    </div>
-  </div>
-  <script>window.onload = () => { window.print(); }</script>
-</body></html>`;
-  w.document.write(html);
-  w.document.close();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -545,7 +767,7 @@ function Sidebar({ active, setActive, currentUser, onLogout, onRefresh, onlineCo
               <div style={{
                 fontSize: 11, fontWeight: 700, letterSpacing: "0.1em",
                 textTransform: "uppercase", color: C.amber,
-                padding: "24px 12px 8px",
+                padding: "24px 0px 8px",
               }}>{n.section}</div>
             )}
             <button
@@ -643,7 +865,7 @@ function TopBar({ active, onRefresh, theme, setTheme, setIsCollapsed, isCollapse
         {nav && <Icon name={nav.icon} size={18} color={C.blue} />}
         <span style={{ fontSize: 16, fontWeight: 500 }}>{nav?.label || ""}</span>
       </div>
-      <div className="kmc-slogan" style={{ margin: "auto", display: "flex", alignItems: "center", width: 200, height: 50 }}> {/* Added class for CSS hiding */}
+      <div className="kmc-slogan" style={{ margin: "auto", display: "flex", alignItems: "center", width: "auto", height: 50 }}> {/* Fixed width to auto */}
                <img 
         src={kmcslogan} 
         alt="KMC slogan" 
@@ -651,7 +873,7 @@ function TopBar({ active, onRefresh, theme, setTheme, setIsCollapsed, isCollapse
                }} 
        />
             </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <span style={{
           fontSize: 11, padding: "4px 12px", borderRadius: 20,
           background: C.greenBg, color: C.greenDark, fontWeight: 500,
@@ -662,7 +884,7 @@ function TopBar({ active, onRefresh, theme, setTheme, setIsCollapsed, isCollapse
         <Btn onClick={() => setTheme(theme === "light" ? "dark" : "light")} variant="default" small icon={theme === "light" ? "Moon" : "Sun"}>
           {theme === "light" ? "Dark" : "Light"}
         </Btn>
-        <Btn onClick={onRefresh} variant="default" small icon="RotateCw">Refresh</Btn>
+        <Btn className="hide-mobile" onClick={onRefresh} variant="default" small icon="RotateCw">Refresh</Btn>
         
       </div>
     </div>
@@ -677,6 +899,7 @@ function LoginPage({ theme, setTheme }) {
   const { login } = useAuth();
   const [eid, setEid] = useState("");
   const [pw, setPw]   = useState("");
+  const [showPw, setShowPw] = useState(false);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -739,20 +962,26 @@ function LoginPage({ theme, setTheme }) {
         .login-btn:active:not(:disabled) { transform: translateY(0); }
       `}</style>
 
-      <div className="login-card" style={{
-        width: 420, // This will be overridden by CSS media query
-        background: "var(--color-background-primary)",
-        borderRadius: 28, overflow: "hidden",
-        boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.15)",
-        position: "relative", zIndex: 1, border: "1px solid var(--color-border-tertiary)"
-      }}>
+      <div 
+        className="login-card" 
+        style={{
+          width: "100%",
+          maxWidth: 420,
+          margin: "16px",
+          background: "var(--color-background-primary)",
+          borderRadius: 28, 
+          overflow: "hidden",
+          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.15)",
+          position: "relative", 
+          zIndex: 1, 
+          border: "1px solid var(--color-border-tertiary)"
+        }}
+      >
         {/* Header stripe */}
-        <div style={{ background: C.blueDark, padding: "48px 40px 36px", textAlign: "center" }}>
+        <div className="login-card-header" style={{ background: C.blueDark, padding: "48px 32px 36px", textAlign: "center" }}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
             <div style={{
-              
               display: "flex", alignItems: "center", justifyContent: "center",
-              
             }}>
               <img
                 src={kmclogo}
@@ -763,15 +992,15 @@ function LoginPage({ theme, setTheme }) {
                 }}
               />
             </div>
-            <div>
-              <div style={{ color: "#fff", fontWeight: 700, fontSize: 22, letterSpacing: "-0.02em" }}>Kenya Meat Commission</div>
+            <div style={{ width: "100%" }}>
+              <div style={{ color: "#fff", fontWeight: 700, fontSize: "clamp(18px, 5vw, 22px)", letterSpacing: "-0.02em", lineHeight: 1.2 }}>Kenya Meat Commission</div>
               <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, marginTop: 4 }}>Boma Dashboard</div>
             </div>
           </div>
         </div>
 
         {/* Form */}
-        <div style={{ padding: "40px" }}>
+        <div className="login-card-body" style={{ padding: "32px" }}>
           <div style={{ marginBottom: 28 }}>
             <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 6, color: "var(--color-text-primary)" }}> Sign In</div>
             <div style={{ fontSize: 14, color: "var(--color-text-secondary)" }}>
@@ -781,21 +1010,40 @@ function LoginPage({ theme, setTheme }) {
 
           <div className="login-input-group">
             <FormField label="Employee ID">
-              <input
-                type="text" value={eid} placeholder="e.g 12345"
-                onChange={e => setEid(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && go()}
-                autoComplete="username"
-              />
+              <div style={{ position: "relative" }}>
+                <Icon name="User" size={18} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--color-text-tertiary)", pointerEvents: "none" }} />
+                <input
+                  type="text" value={eid} placeholder="e.g 12345"
+                  onChange={e => setEid(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && go()}
+                  autoComplete="username"
+                  style={{ paddingLeft: 42 }}
+                />
+              </div>
             </FormField>
 
             <FormField label="Password">
-              <input
-                type="password" value={pw} placeholder="Type your password"
-                onChange={e => setPw(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && go()}
-                autoComplete="current-password"
-              />
+              <div style={{ position: "relative" }}>
+                <Icon name="Lock" size={18} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--color-text-tertiary)", pointerEvents: "none" }} />
+                <input
+                  type={showPw ? "text" : "password"} value={pw} placeholder="Type your password"
+                  onChange={e => setPw(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && go()}
+                  autoComplete="current-password"
+                  style={{ paddingLeft: 42, paddingRight: 42 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw(!showPw)}
+                  style={{
+                    position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
+                    background: "none", border: "none", cursor: "pointer", color: "var(--color-text-tertiary)",
+                    display: "flex", alignItems: "center", justifyContent: "center", padding: 4
+                  }}
+                >
+                  <Icon name={showPw ? "EyeOff" : "Eye"} size={18} />
+                </button>
+              </div>
             </FormField>
           </div>
 
@@ -832,20 +1080,23 @@ function LoginPage({ theme, setTheme }) {
 // OVERVIEW PAGE
 // ─────────────────────────────────────────────────────────────────────────────
 
-function OverviewPage({ mobs, chartData }) {
+function OverviewPage({ mobs, chartData, loading }) {
   const { intakeData = [], mobStatusData = [], emailStatusData = [], speciesCountData = [], weightData = [] } = chartData;
   const total = mobs.length;
   const open  = mobs.filter(m => m.mob_status === "OPEN").length;
   const livestockCount = mobs.reduce((s, m) => s + (getMobLivestockCount(m) || 0), 0);
+  const totalWeight = mobs.reduce((s, m) => s + Number(m.total_weight || 0), 0);
+  const avgWeight = livestockCount > 0 ? (totalWeight / livestockCount) : 0;
   const failed  = mobs.filter(m => m.email_status === "FAILED").length;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div className="responsive-grid-4"> {/* Changed to className */}
-        <KPI label="Total MOBs"       value={total}   icon="ListTodo" sub="Live from backend" theme="blue" />
-        <KPI label="Total Livestock"    value={livestockCount.toLocaleString()} icon="BarChart3" theme="amber" />
-        <KPI label="Open MOBs"        value={open}    icon="LockOpen" sub="Accepting livestock" theme="green" />
-        <KPI label="GRN Email Failures" value={failed} icon="MailX"
+        <KPI label="Total MOBs"       value={total}   icon="ListTodo" sub="Live from backend" theme="blue" loading={loading} />
+        <KPI label="Total Livestock"    value={livestockCount.toLocaleString()} icon="BarChart3" theme="amber" loading={loading} />
+        <KPI label="Avg Animal Weight" value={`${avgWeight.toFixed(1)} KG`} icon="Weight" sub="Global average" theme="purple" loading={loading} />
+        <KPI label="Open MOBs"        value={open}    icon="LockOpen" sub="Accepting livestock" theme="green" loading={loading} />
+        <KPI label="GRN Email Failures" value={failed} icon="MailX" loading={loading}
           sub={failed > 0 ? "Needs attention" : "All delivered"} theme="red" />
       </div>
 
@@ -986,7 +1237,12 @@ function GrnPage({ mobs, toast, currentUser }) {
     setBusy(b => ({ ...b, [mob.id]: "retry" }));
     try {
       await mobsApi.retryEmail(mob.id, { force: true });
-      toast("Email resent successfully to " + (mob.supplier?.name || mob.id), "success");
+      // Update local state immediately so the user sees the "SENT" badge
+      setMobs(prev => prev.map(m => 
+        m.id === mob.id ? { ...m, email_status: "SENT" } : m
+      ));
+      
+      toast(`Email resent successfully to ${mob.supplier?.name || 'supplier'}`, "success");
     } catch (e) {
       toast("Retry failed: " + e.message, "error");
     } finally {
@@ -1077,9 +1333,7 @@ function GrnPage({ mobs, toast, currentUser }) {
               </TD>
               <TD>
                 <div style={{ display: "flex", gap: 6 }}>
-                  <Btn small icon="Eye" onClick={() => handlePreview(m)} loading={loadingGrn[m.id]}>
-                    {loadingGrn[m.id] ? "…" : "Preview"}
-                  </Btn>
+                  <Btn small icon="Eye" onClick={() => handlePreview(m)} loading={loadingGrn[m.id]}>Preview</Btn>
                   <Btn small icon="Printer" variant="ghost" onClick={() => handlePrint(m)} disabled={loadingGrn[m.id]}>
                     Print
                   </Btn>
@@ -1125,137 +1379,147 @@ function GrnPreview({ data, mob }) {
     `Supplier: ${supplier.name || 'N/A'}`,
     `Farmer No: ${supplier.farmer_no || 'N/A'}`,
     `Weight: ${Number(d?.total_weight || mob.total_weight || 0).toFixed(3)} KG`,
-    `Value: KES ${Number(d?.total_amount || mob.total_amount || 0).toLocaleString()}`,
-    `Date: ${new Date().toLocaleString('en-GB')}`
+    `Date: ${new Date().toLocaleDateString('en-GB')}`
   ].join(' | ');
 
   return (
-    <div style={{ fontSize: 13, fontFamily: "'Segoe UI', Roboto, sans-serif", background: "var(--color-background-secondary)", padding: 16, borderRadius: "var(--border-radius-lg)" }}>
-      {/* Header with logo */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2.5px solid #003893", paddingBottom: 12, marginBottom: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <img src={kmclogo} alt="KMC Logo" style={{ height: 50, width: "auto", borderRadius: 8 }} />
-        </div>
-        <div style={{ display: "flex", gap: 40, fontSize: 16, lineHeight: 1.5, textAlign: "center", flex: 1, justifyContent: "center", color: '#2c3e50' }}>
-          <div style={{ paddingRight: 0 }}>
-            <strong>Headquarters</strong><br/>P.O Box 2-00204<br/>+254 45 6626041
+    <div style={{ fontSize: '9pt', fontFamily: 'Arial, sans-serif', color: '#333', background: '#fff', border: '1px solid #ddd', padding: '8mm', maxWidth: '850px', margin: '0 auto' }}>
+      {/* Header logic perfectly identical to printGRN */}
+      <div style={{ display: 'flex', borderBottom: '2pt solid #000000', paddingBottom: '3mm', marginBottom: '4mm' }}>
+        <div style={{ width: '22mm', display: 'flex', alignItems: 'center' }}></div>
+        <div style={{ flex: 1, display: 'flex', gap: '3mm', fontSize: '7pt', padding: '0 3mm' }}>
+          <img src={kmclogo} alt="KMC" style={{ width: '20mm', height: '20mm', objectFit: 'contain', marginRight: '3mm' }} />
+          <div style={{ flex: 1 }}>
+            <strong style={{ display: 'block', fontSize: '7.5pt', color: '#003893' }}>Headquarters</strong>
+            P.O.Box 2-00204 Athi River<br/>Tel: +254 45 6626041/3/4<br/>Email: accounts@kenyameat.co.ke
           </div>
-          <div style={{ paddingRight: 0 }}>
-            <strong>Nairobi Depot</strong><br/>P.O.Box 30414-00100<br/>+254 20 2013426
+          <div style={{ flex: 1 }}>
+            <strong style={{ display: 'block', fontSize: '7.5pt', color: '#003893' }}>Landhies RAd Depot</strong>
+            P.O.Box 30414-00100 Nairobi<br/>Tel: +254 20 2013426/31<br/>Email: Landhies@kenyameat.co.ke
           </div>
-          <div>
-            <strong>Mombasa Branch</strong><br/>P.O Box 87080-80100<br/>+254 20 3542623
+          <div style={{ flex: 1 }}>
+            <strong style={{ display: 'block', fontSize: '7.5pt', color: '#003893' }}>Mombasa Branch</strong>
+            P.O.Box 87080-80100 Mombasa<br/>Tel: +254 20 3542623<br/>Email: kmcmombasa@kenyameat.co.ke
           </div>
         </div>
       </div>
 
-      {/* Title */}
-      <div style={{ textAlign: "center", padding: "10px 0", marginBottom: 16 }}>
-        <div style={{ fontSize: 19, fontWeight: 900, color: "#003893", margin: 0 }}>KENYA MEAT COMMISSION</div>
-        <div style={{ fontSize: 11, fontWeight: 700, color: "#C8102E", marginTop: 4 }}>GOODS RECEIVED NOTE - {d?.grn_number || mob.grn_number || "PENDING"}</div>
+      <div style={{ margin: '4mm 0 2mm' }}>
+        <div style={{ fontSize: '14pt', fontWeight: 900, color: '#003893' }}>KENYA MEAT COMMISSION</div>
+        <div style={{ fontSize: '11pt', fontWeight: 'bold', textDecoration: 'underline', marginTop: '1mm', color: '#C8102E' }}>GOODS RECEIVED NOTE</div>
       </div>
 
-      {/* Copy Label */}
-      <div style={{ textAlign: "center", fontWeight: 800, fontSize: 10, color: "#C8102E", background: "#f0f4ff", marginBottom: 12, textTransform: "uppercase", letterSpacing: "1.5px", padding: "6px 0", borderRadius: 4, border: '1px solid #d0dfff' }}>
-        SUPPLIER'S COPY
-      </div>
-
-      {/* Supplier & Reference Details */}
-      <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 12, marginBottom: 12 }}>
-        <div style={{ border: "1px solid #000", background: '#fcfcfc', padding: 12, borderRadius: 2 }}>
-          <div style={{ fontWeight: 700, color: "#C8102E", marginBottom: 6 }}>SUPPLIER DETAILS:</div>
-          <div style={{ fontSize: 12, lineHeight: 1.6 }}>
-            <div>Name: <span style={{ fontWeight: 600 }}>{(supplier.name || "N/A").toUpperCase()}</span></div>
-            <div>Farmer No: <span style={{ fontWeight: 600 }}>{supplier.farmer_no || "N/A"}</span></div>
-            <div>ID Number: <span style={{ fontWeight: 600 }}>{supplier.id_number || "N/A"}</span></div>
-            <div>Phone No: <span style={{ fontWeight: 600 }}>{supplier.phone || "N/A"}</span></div>
+      <div style={{ display: 'flex', gap: '4mm', marginBottom: '4mm' }}>
+        <div style={{ flex: 1, border: '1pt solid #000000', padding: '3mm', fontSize: '10pt', fontWeight: 'bold' }}>
+          <div>Supplier:&nbsp;&nbsp;<span style={{ textTransform: 'uppercase', color: '#333' }}>{supplier.name || 'N/A'}</span></div>
+        <div style={{ fontSize: '8pt', marginTop: '2mm', display: 'flex', flexDirection: 'column', gap: '1mm', fontWeight: 'normal' }}>
+            <span>GRN No: <strong>{d?.grn_number || mob.grn_number || 'PENDING'}</strong></span>
+            <span>MOB No: <strong>{d?.mob_number || mob.mob_number || 'N/A'}</strong></span>
+          <span>Farmer No: <strong>{supplier.farmer_no || 'N/A'}</strong></span>
+            <span>Boma: <strong>{d?.location || mob.location || 'N/A'}</strong></span>
+          <span>ID No: <strong>{supplier.id_number || 'N/A'}</strong></span>
+          <span>Phone: <strong>{supplier.phone || 'N/A'}</strong></span>
           </div>
         </div>
+        <div style={{ width: '50mm', border: '1pt solid #000000', padding: '2mm 3mm', fontSize: '9pt', display: 'flex', alignItems: 'center', gap: '4mm' }}>
+          <span style={{ fontWeight: 'bold', color: '#000000' }}>Date</span>
+        <span style={{ flex: 1, fontWeight: 'bold' }}>{new Date(d?.received_date || mob.received_date || Date.now()).toLocaleDateString('en-GB')}</span>
+        </div>
+      </div>
 
-        <div style={{ fontSize: 12 }}>
-          {[
-            ["MOB Number", d?.mob_number || mob.mob_number],
-            ["Location", getMobLocation(d) || getMobLocation(mob)],
-            ["Officer", officer.name],
-            ["Date Received", d?.received_date || fmtDate(mob.received_date)],
-          ].map(([l, v]) => (
-            <div key={l} style={{ display: "flex", padding: "5px 0", borderBottom: "1px solid #eee", marginBottom: 3 }}>
-              <span style={{ fontWeight: 700, width: 90, color: "#003893" }}>{l}:</span>
-              <span style={{ fontWeight: 500 }}>{v || "N/A"}</span>
-            </div>
+      <div style={{ textAlign: 'center', fontSize: '11pt', fontWeight: 900, textDecoration: 'underline', textTransform: 'uppercase', margin: '4mm 0', color: '#C8102E', letterSpacing: '1pt' }}>FARMERS COPY</div>
+
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '2mm' }}>
+        <thead style={{ background: '#003893', color: '#fff', fontSize: '8pt' }}>
+          <tr>
+            <th style={{ border: '0.75pt solid #000000', padding: '2mm', width: '12%' }}>Item No.</th>
+            <th style={{ border: '0.75pt solid #000000', padding: '2mm', width: '18%' }}>Tag Code</th>
+            <th style={{ border: '0.75pt solid #000000', padding: '2mm', width: '10%' }}>Unit</th>
+            <th style={{ border: '0.75pt solid #000000', padding: '2mm' }}>Description</th>
+            <th style={{ border: '0.75pt solid #000000', padding: '2mm', width: '18%' }}>Weight (KG)</th>
+          </tr>
+        </thead>
+        <tbody style={{ fontSize: '9pt' }}>
+          {animals.map((a, i) => (
+            <tr key={i}>
+              <td style={{ border: '0.75pt solid #000000', padding: '1.5mm 2mm', textAlign: 'center' }}>{a.item_no || i + 1}</td>
+              <td style={{ border: '0.75pt solid #000000', padding: '1.5mm 2mm', textAlign: 'center', fontWeight: 'bold' }}>{a.unit_code || a.livestock_number || 'N/A'}</td>
+              <td style={{ border: '0.75pt solid #000000', padding: '1.5mm 2mm', textAlign: 'center' }}>KG</td>
+              <td style={{ border: '0.75pt solid #000000', padding: '1.5mm 2mm', fontWeight: 'bold', textAlign: 'center' }}>{a.item_description || 'Livestock Entry'}</td>
+              <td style={{ border: '0.75pt solid #000000', padding: '1.5mm 2mm', textAlign: 'right' }}>{Number(a.weight || 0).toFixed(3)}</td>
+            </tr>
           ))}
-        </div>
-      </div>
+        </tbody>
+      </table>
 
-      {/* Livestock Table */}
-      <div style={{ background: '#fff', border: '1px solid #000', padding: "0", marginBottom: 12 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-          <thead>
-            <tr style={{ background: "#f0f4ff", color: "#003893" }}>
-              {["#", "Tag / Unit Code", "Description", "Weight (KG)", "Value (KES)"].map(h => (
-                <th key={h} style={{ padding: "14px 10px", textAlign: h === "Description" ? "left" : "right", fontWeight: 700, fontSize: 10, textTransform: 'uppercase', border: '1px solid #000' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
+      <div style={{ display: 'flex', marginTop: '4mm' }}>
+        <table style={{ marginLeft: 'auto', width: '80mm', borderCollapse: 'collapse' }}>
           <tbody>
-            {animals.slice(0, 10).map((a, i) => (
-              <tr key={i} style={{ background: i % 2 !== 0 ? "#fbfbfb" : "transparent" }}>
-                <td style={{ padding: "16px 10px", textAlign: "center", fontSize: 11, border: '1px solid #000' }}>{a.item_no || i + 1}</td>
-                <td style={{ padding: "16px 10px", textAlign: "center", fontFamily: "monospace", fontSize: 10, border: '1px solid #000' }}>{a.unit_code || a.livestock_number || "N/A"}</td>
-                <td style={{ padding: "16px 10px", fontSize: 11, border: '1px solid #000' }}>{a.item_description || "Livestock Entry"}</td>
-                <td style={{ padding: "16px 10px", textAlign: "right", fontWeight: 500, border: '1px solid #000' }}>{Number(a.weight || a.qty || 0).toFixed(3)}</td>
-                <td style={{ padding: "16px 10px", textAlign: "right", fontWeight: 600, border: '1px solid #000' }}>{Number(a.value || (a.weight * (a.unit_price || 0)) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr style={{ fontWeight: 800, background: '#f0f4ff', color: '#003893' }}>
-              <td colSpan={3} style={{ padding: "12px 8px", border: '1px solid #000' }}>TOTAL : {animals.length} head</td>
-              <td colSpan={2} style={{ padding: "12px 8px", textAlign: "right", border: '1px solid #000' }}>{Number(d?.total_weight || mob.total_weight || 0).toFixed(3)} KG</td>
+            <tr>
+              <td style={{ border: '1pt solid #000000', padding: '2mm 3mm', fontSize: '9pt', fontWeight: 'bold', color: '#000000', width: '42mm' }}>Total Weight</td>
+              <td style={{ border: '1pt solid #000000', padding: '2mm 3mm', fontSize: '9pt', fontWeight: 'bold', textAlign: 'right' }}>{Number(d?.total_weight || mob.total_weight || 0).toFixed(2)}</td>
+              <td style={{ border: '1pt solid #000000', padding: '2mm', fontSize: '7.5pt', textAlign: 'center', width: '10mm' }}>KG</td>
             </tr>
-          </tfoot>
+            <tr>
+              <td style={{ border: '1pt solid #000000', padding: '2mm 3mm', fontSize: '9pt', fontWeight: 'bold', color: '#000000' }}>Total Head Count</td>
+              <td style={{ border: '1pt solid #000000', padding: '2mm 3mm', fontSize: '9pt', fontWeight: 'bold', textAlign: 'right' }}>{animals.length}</td>
+              <td style={{ border: '1pt solid #000000', padding: '2mm', fontSize: '7.5pt', textAlign: 'center' }}>HEAD</td>
+            </tr>
+          </tbody>
         </table>
       </div>
 
-      {/* Totals */}
-      <div style={{ padding: "12px", marginBottom: 12 }}>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, fontSize: 13, fontWeight: 800, color: '#003893' }}>
-          <span>TOTAL WEIGHT:</span>
-          <span style={{ minWidth: 100, textAlign: "right", borderBottom: '2px solid #003893' }}>{Number(d?.total_weight || mob.total_weight || 0).toFixed(3)} KG</span>
-        </div>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, fontSize: 13, fontWeight: 800, color: '#003893', marginTop: 8 }}>
-          <span>TOTAL AMOUNT:</span>
-          <span style={{ minWidth: 100, textAlign: "right", borderBottom: '2px solid #003893' }}>KES {Number(d?.total_amount || mob.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-        </div>
-      </div>
-
-      {/* Signature Boxes */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginTop: 12 }}>
-        {[
-          "Received By (Measuring Officer)",
-          "Verified By (Livestock Manager)",
-          "Supplier Signature",
-        ].map((label, i) => (
-          <div key={i} style={{ border: "1px solid #000", padding: "10px", height: 85, display: "flex", flexDirection: "column", justifyContent: "space-between", background: '#fff' }}>
-            <span style={{ fontSize: 9, fontWeight: 700, color: "#003893", textTransform: 'uppercase' }}>{label}:</span>
-            <div style={{ fontSize: 10, color: "#666" }}>Sign: _________________</div>
+      <div style={{ display: 'flex', gap: '6mm', marginTop: '4mm' }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', border: '1pt solid #000000', borderBottom: 'none', background: '#E8EDFF', fontSize: '8pt', fontWeight: 'bold', color: '#003893' }}>
+            <div style={{ flex: 1, padding: '1.5mm 2mm', borderRight: '0.75pt solid #003893' }}>FOR STORES USE</div>
+            <div style={{ width: '20mm', padding: '1.5mm 2mm', borderRight: '0.75pt solid #003893', textAlign: 'center' }}>INITIALS</div>
+            <div style={{ width: '20mm', padding: '1.5mm 2mm', borderRight: '0.75pt solid #003893', textAlign: 'center' }}>SIGNATURE</div>
+            <div style={{ width: '20mm', padding: '1.5mm 2mm', textAlign: 'center' }}>DATE</div>
           </div>
-        ))}
-      </div>
-
-      {/* QR Code Section */}
-      <div style={{ display: "flex", justifyContent: "center", marginTop: 20 }}>
-        <div style={{ textAlign: "center" }}>
-          <img src={`https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(qrData)}`} style={{ width: 80, height: 80 }} alt="QR Verification" />
-          <div style={{ fontSize: 9, marginTop: 4, color: "var(--color-text-tertiary)", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Scan for Digital Verification</div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', border: '1pt solid #000000' }}>
+            <tbody>
+              {['Received By', 'Verified By'].map(label => (
+                <tr key={label}>
+                  <td style={{ border: '0.75pt solid #000000', padding: '1.5mm 2mm', fontSize: '7.5pt', color: '#C8102E', fontWeight: 'bold', height: '9mm' }}>{label}</td>
+                  <td style={{ border: '0.75pt solid #000000', width: '20mm' }}></td>
+                  <td style={{ border: '0.75pt solid #000000', width: '20mm' }}></td>
+                  <td style={{ border: '0.75pt solid #000000', width: '20mm' }}></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div style={{ width: '75mm', display: 'flex', flexDirection: 'column', gap: '4mm' }}>
+          <div style={{ border: '0.75pt solid #000000', padding: '2mm 3mm', fontSize: '7.5pt', lineHeight: 1.6 }}>
+            <p style={{ fontWeight: 'bold', borderBottom: '1pt solid #003893', paddingBottom: '1mm', marginBottom: '2mm' }}>NOTES</p>
+            <p>1. These are live weights of the livestock as measured at receiving bay.</p>
+            <p>2. This serves as a temporary GRN.</p>
+            <p>3. Unit conversion applied where applicable.</p>
+          </div>
         </div>
       </div>
 
-      {/* Footer */}
-      <div style={{ marginTop: 12, paddingTop: 8, borderTop: "1px solid #eee", display: "flex", justifyContent: "space-between", fontSize: 10, color: "#888" }}>
-        <span>Ref: {d?.grn_number || "PENDING"}</span>
-        <span>Generated: {new Date().toLocaleString("en-GB")}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10mm', marginTop: '5mm' }}>
+        <div style={{ textAlign: 'center' }}>
+          <img src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(qrData)}`} alt="QR" style={{ width: '24mm', height: '24mm' }} />
+          <p style={{ fontSize: '7pt', color: '#555', marginTop: '1mm', fontWeight: 'bold' }}>Digital Verification QR</p>
+          <p style={{ fontSize: '6pt', color: '#999' }}>Ref: {d?.grn_number || 'PENDING'}</p>
+        </div>
+        <div style={{ fontSize: '7pt', lineHeight: '1.4' }}>
+          <strong>Measuring Officer:</strong> {officer.name || 'N/A'}<br/>
+          <strong>Farmer No:</strong> {supplier.farmer_no || 'N/A'}<br/>
+          <strong>Supplier ID:</strong> {supplier.id_number || 'N/A'}<br/>
+          <strong>Phone:</strong> {supplier.phone || 'N/A'}
+        </div>
       </div>
+
+      <div style={{ marginTop: '6mm', borderTop: '1pt solid #3b3b3b', paddingTop: '2mm', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '7.5pt', color: '#333' }}>
+        <span>System GRN Ref: {d?.grn_number || 'PENDING'}</span>
+        <img src={kmcslogan} alt="Slogan" style={{ height: '10mm', objectFit: 'contain' }} />
+        <span>KMC Livestock Tracking System &nbsp;|&nbsp; Generated: {new Date().toLocaleString('en-GB')}</span>
+      </div>
+
     </div>
   );
 }
@@ -1537,7 +1801,9 @@ function AddUserModal({ onClose, onCreated, toast }) {
 
   const submit = async () => {
     if (!form.name || !form.employee_id || !form.password) return toast("Name, Employee ID and password are required.", "error");
-    if (form.password.length < 8) return toast("Password must be at least 8 characters.", "error");
+    if (!PASSWORD_REGEX.test(form.password)) {
+      return toast(PASSWORD_ERROR_MSG, "error");
+    }
     setBusy(true);
     try {
       const user = await usersApi.create({
@@ -1717,7 +1983,9 @@ function UsersPage({ users, setUsers, toast, loading }) {
   };
 
   const handleResetPw = async () => {
-    if (!newPw || newPw.length < 8) return toast("Password must be at least 8 characters.", "error");
+    if (!PASSWORD_REGEX.test(newPw)) {
+      return toast(PASSWORD_ERROR_MSG, "error");
+    }
     setBusy(b => ({ ...b, [resetUser.id]: true }));
     try {
       await usersApi.resetPassword(resetUser.id, newPw);
@@ -1993,7 +2261,7 @@ function LocationsPage({ chartData }) {
 
       <div style={s.card}>
         <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 14 }}>Livestock per Location</div>
-        <ResponsiveContainer width="50%" height={300}>
+        <ResponsiveContainer width="100%" height={300}>
           <BarChart data={locationData} margin={{ top: 10, right: 30, left: 0, bottom: 40 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-tertiary)" />
             <XAxis dataKey="name" angle={-45} textAnchor="end" interval={0} tick={{ fontSize: 10, fill: "var(--color-text-secondary)" }} />
@@ -2110,21 +2378,26 @@ function Dashboard({ theme, setTheme }) {
   const [chartData, setChartData] = useState({ intakeData: FALLBACK_INTAKE });
   const [loading,   setLoading]   = useState(true);
   const [toast,     setToastMsg]  = useState({ msg: "", type: "success" });
+  const isFetchingRef = useRef(false);
 
   const showToast = useCallback((msg, type = "success") => {
     setToastMsg({ msg, type });
     setTimeout(() => setToastMsg({ msg: "", type: "success" }), 4000);
   }, []);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    const [mr, ur, sr] = await Promise.allSettled([
-      mobsApi.getAll({ per_page: 200 }),
-      usersApi.getAll(),
-      suppliersApi.getAll(),
-    ]);
+  const loadData = useCallback(async (silent = false) => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
 
-    if (mr.status === "fulfilled") {
+    if (!silent) setLoading(true);
+    try {
+      const [mr, ur, sr] = await Promise.allSettled([
+        mobsApi.getAll({ per_page: 200 }),
+        usersApi.getAll(),
+        suppliersApi.getAll(),
+      ]);
+
+      if (mr.status === "fulfilled") {
       const mobList = extractArray(mr.value);
       setMobs(mobList);
       const livestockList = mobList.flatMap(m => m.livestock || []);
@@ -2163,7 +2436,7 @@ function Dashboard({ theme, setTheme }) {
       mobList.forEach(m => {
         const date = m.received_date || m.created_at;
         if (date) {
-          const month = new Date(date).toLocaleString("en-US", { month: "short" });
+          const month = new Date(date).toLocaleString("en-GB", { month: "short" });
           intakeMap[month] = (intakeMap[month] || 0) + (getMobLivestockCount(m) || 0);
         }
       });
@@ -2194,27 +2467,16 @@ function Dashboard({ theme, setTheme }) {
         }).length;
         dailyTrendData.push({ day: label, count });
       }
-
-      const SCOLS = { Cattle: C.blue, Sheep: C.green, Goat: C.amber, Camel: C.purple };
+      
       setChartData({
         intakeData: actualIntakeData,
         dailyStats: { openedToday, closedToday, livestockToday, activeStaff },
         dailyTrendData,
-        mobStatusData: [
-          { name: "Open",   value: mobList.filter(m => m.mob_status === "OPEN").length,   color: C.green },
-          { name: "Closed", value: mobList.filter(m => m.mob_status === "CLOSED").length, color: C.blue  },
-        ],
-        emailStatusData: [
-          { name: "Sent",    value: mobList.filter(m => m.email_status === "SENT").length,    color: C.green  },
-          { name: "Failed",  value: mobList.filter(m => m.email_status === "FAILED").length,  color: C.red    },
-          { name: "Pending", value: mobList.filter(m => m.email_status === "PENDING").length, color: C.amber  },
-        ],
-        speciesCountData: Object.entries(speciesCounts).map(([name, value]) => ({ name, value, color: SCOLS[name] || C.gray })),
-        genderData: [
-          { name: "Male",   value: genderCounts.Male,   color: C.blue },
-          { name: "Female", value: genderCounts.Female, color: C.purple },
-        ],
-        weightData: Object.entries(weightBuckets).map(([band, count]) => ({ band, count })),
+        mobStatusData:   buildMobStatusData(mobList, C),
+        emailStatusData: buildEmailStatusData(mobList, C),
+        speciesCountData: buildSpeciesData(livestockList, C),
+        genderData:      buildGenderData(livestockList, C),
+        weightData:      buildWeightData(livestockList),
         locationData: Object.entries(locationCounts).map(([name, count]) => ({
           name,
           mobs: count,
@@ -2236,12 +2498,25 @@ function Dashboard({ theme, setTheme }) {
       });
     }
 
-    if (ur.status === "fulfilled") setUsers(extractArray(ur.value));
-    if (sr.status === "fulfilled") setSuppliers(extractArray(sr.value));
-    setLoading(false);
+      if (ur.status === "fulfilled") setUsers(extractArray(ur.value));
+      if (sr.status === "fulfilled") setSuppliers(extractArray(sr.value));
+    } finally {
+      setLoading(false);
+      isFetchingRef.current = false;
+    }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    // Initial full-page load with spinner
+    loadData();
+
+    // Automated polling every 30 seconds (silent refresh)
+    const pollInterval = setInterval(() => {
+      loadData(true);
+    }, 30000);
+
+    return () => clearInterval(pollInterval);
+  }, [loadData]);
 
   const onlineCount = users.filter(u => u.is_online).length;
 
@@ -2284,7 +2559,6 @@ function Dashboard({ theme, setTheme }) {
       display: "grid",
       gridTemplateColumns: isCollapsed ? "80px 1fr" : "260px 1fr",
       minHeight: "100vh", 
-      background: "var(--color-background-tertiary)",
       background: "var(--color-background-tertiary)", 
       transition: "grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
     }}>
@@ -2297,7 +2571,7 @@ function Dashboard({ theme, setTheme }) {
       />
       <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "var(--color-background-tertiary)", overflow: "hidden" }}>
         <TopBar active={active} onRefresh={loadData} theme={theme} setTheme={setTheme} setIsCollapsed={setIsCollapsed} isCollapsed={isCollapsed} />
-        <main style={{ flex: 1, padding: 20, display: "flex", flexDirection: "column", gap: 0 }}>
+        <main className="dashboard-main" style={{ flex: 1, padding: 20, display: "flex", flexDirection: "column", gap: 0 }}>
           {page()}
         </main>
       </div>
@@ -2392,14 +2666,17 @@ function AppInner() {
         }
         @media (max-width: 768px) {
           /* Login Page */
-          .login-card { width: 90% !important; max-width: 420px; }
+          .login-card { width: 95% !important; max-width: 420px; }
+          .login-card-header { padding: 32px 20px !important; }
+          .login-card-body { padding: 24px 20px !important; }
 
-          /* TopBar */
+          /* General Layout */
+          .dashboard-main { padding: 12px !important; }
           .kmc-slogan { display: none !important; }
+          .hide-mobile { display: none !important; }
 
           /* Dashboard Grids */
-          .responsive-grid-4 { grid-template-columns: 1fr; }
-          .responsive-grid-3 { grid-template-columns: 1fr; }
+          .responsive-grid-4, .responsive-grid-3, .responsive-grid-2 { grid-template-columns: 1fr; }
           .responsive-grid-2 { grid-template-columns: 1fr; }
 
           /* Sidebar - always collapsed on mobile */
