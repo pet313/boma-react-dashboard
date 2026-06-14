@@ -1096,8 +1096,6 @@ function OverviewPage({ mobs, chartData, loading }) {
         <KPI label="Total Livestock"    value={livestockCount.toLocaleString()} icon="BarChart3" theme="amber" loading={loading} />
         <KPI label="Avg Animal Weight" value={`${avgWeight.toFixed(1)} KG`} icon="Weight" sub="Global average" theme="purple" loading={loading} />
         <KPI label="Open MOBs"        value={open}    icon="LockOpen" sub="Accepting livestock" theme="green" loading={loading} />
-        <KPI label="GRN Email Failures" value={failed} icon="MailX" loading={loading}
-          sub={failed > 0 ? "Needs attention" : "All delivered"} theme="red" />
       </div>
 
       <div className="responsive-grid-2"> {/* Changed to className */}
