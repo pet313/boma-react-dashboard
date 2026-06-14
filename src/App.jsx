@@ -2616,8 +2616,8 @@ function AppInner() {
       --color-border-primary: #64748b;
       --color-border-secondary: #334155;
       --color-border-tertiary: #1e293b;
-      --color-sidebar-bg: linear-gradient(180deg, rgba(0, 56, 147, 0.9) 0%, rgba(1, 40, 89, 0.95) 100%);
-      --color-sidebar-blur: blur(16px);
+      --color-sidebar-bg: #1e293b;
+      --color-sidebar-blur: none;
     }
     input, select, textarea {
       background: var(--color-background-secondary);
