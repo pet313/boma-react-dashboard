@@ -3,7 +3,7 @@ import { Avatar } from "../common/Avatar";
 import { C, NAV, ROLE_META } from "../../utils/constants";
 import kmclogo from '../../assets/kmclogo.jpg'
 
-export function Sidebar({ active, setActive, currentUser, onLogout, onRefresh, onlineCount, mobCount, isCollapsed, setIsCollapsed }) {
+export function Sidebar({ active, setActive, currentUser, onLogout, onRefresh, loading, onlineCount, mobCount, isCollapsed, setIsCollapsed }) {
   return (
     <div
       className="sidebar-container"
@@ -104,9 +104,15 @@ export function Sidebar({ active, setActive, currentUser, onLogout, onRefresh, o
           )}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: isCollapsed ? "1fr" : "1fr 1fr", gap: 8, marginBottom: 10 }}>
-          <button onClick={onRefresh} title="Refresh data" className="sidebar-action-btn btn-refresh">
-            <Icon name="RotateCw" size={14} />
-            {!isCollapsed && "Refresh"}
+          <button
+            onClick={() => !loading && onRefresh()}
+            disabled={loading}
+            title="Refresh data"
+            className="sidebar-action-btn btn-refresh"
+            style={{ opacity: loading ? 0.5 : 1, cursor: loading ? "not-allowed" : "pointer" }}
+          >
+            <Icon name="RotateCw" size={14} className={loading ? "spin-btn-icon" : ""} />
+            {!isCollapsed && (loading ? "Refreshing..." : "Refresh")}
           </button>
           <button onClick={onLogout} title="Sign out" className="sidebar-action-btn btn-logout">
             <Icon name="LogOut" size={14} />

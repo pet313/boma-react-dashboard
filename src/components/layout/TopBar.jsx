@@ -3,7 +3,7 @@ import { Btn } from "../common/Btn";
 import { C, NAV } from "../../utils/constants";
 import kmcslogan from '../../assets/kmcslogan.png'
 
-export function TopBar({ active, onRefresh, theme, setTheme, setIsCollapsed, isCollapsed }) {
+export function TopBar({ active, onRefresh, loading, theme, setTheme, setIsCollapsed, isCollapsed }) {
   const nav = NAV.find(n => n.id === active);
   return (
     <div style={{
@@ -36,7 +36,7 @@ export function TopBar({ active, onRefresh, theme, setTheme, setIsCollapsed, isC
         <Btn onClick={() => setTheme(theme === "light" ? "dark" : "light")} variant="default" small icon={theme === "light" ? "Moon" : "Sun"}>
           {theme === "light" ? "Dark" : "Light"}
         </Btn>
-        <Btn className="hide-mobile" onClick={onRefresh} variant="default" small icon="RotateCw">Refresh</Btn>
+        <Btn className="hide-mobile" onClick={onRefresh} loading={loading} variant="default" small icon="RotateCw">Refresh</Btn>
 
       </div>
     </div>
