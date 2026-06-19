@@ -43,12 +43,23 @@ export function useDashboardData() {
         speciesCountData: buildSpeciesData(allAnimals, COLOURS),
         genderData:      buildGenderData(allAnimals, COLOURS),
         weightData:      buildWeightData(allAnimals),
-        // Trend data — would come from a dedicated endpoint in production
-        mobTrendData: FALLBACK_INTAKE_DATA.map(d => ({
-          month:  d.month,
-          opened: Math.floor(Math.random() * 20 + 10),
-          closed: Math.floor(Math.random() * 15 + 8),
-        })),
+        // Aggregate Trend data from mobList
+        mobTrendData: FALLBACK_INTAKE_DATA.map(m => {
+          const stats = mobList.reduce((acc, mob) => {
+            const openedDate = new Date(mob.created_at);
+            if (openedDate.toLocaleString("en-US", { month: "short" }) === m.month) {
+              acc.opened++;
+            }
+            if (mob.mob_status === "CLOSED") {
+              const closedDate = new Date(mob.updated_at || mob.received_date || mob.created_at);
+              if (closedDate.toLocaleString("en-US", { month: "short" }) === m.month) {
+                acc.closed++;
+              }
+            }
+            return acc;
+          }, { opened: 0, closed: 0 });
+          return { month: m.month, ...stats };
+        }),
       }));
     } else {
       setError(mobsRes.reason?.message || "Failed to load MOBs");
