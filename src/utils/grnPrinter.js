@@ -332,7 +332,12 @@ export function printGRN(grnData, mob) {
     </div>
     <div class="date-box">
       <span class="dlabel">Date</span>
-      <span class="dvalue">${new Date(data.received_date || mob.received_date || Date.now()).toLocaleDateString('en-GB')}</span>
+      <span class="dvalue">${(() => {
+        const d = data.received_date || mob.received_date;
+        if (!d) return new Date().toLocaleDateString('en-GB');
+        const parsed = new Date(d);
+        return isNaN(parsed.getTime()) ? d : parsed.toLocaleDateString('en-GB');
+      })()}</span>
     </div>
   </div>
 

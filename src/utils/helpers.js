@@ -2,8 +2,20 @@
 export const getInitials = n => String(n || "?").split(" ").map(w => w[0] || "").join("").slice(0, 2).toUpperCase();
 export const extractArray = j => !j?[]:Array.isArray(j)?j:Array.isArray(j.data)?j.data:[];
 export const fmtWeight = w => Number(w||0).toFixed(3)+" KG";
-export const fmtDate = d => d?new Date(d).toLocaleDateString("en-GB"):"Not specified";
-export const fmtTimestamp = d => d ? new Date(d).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Not specified";
+
+export const fmtDate = d => {
+  if (!d) return "Not specified";
+  const parsed = new Date(d);
+  return isNaN(parsed.getTime()) ? d : parsed.toLocaleDateString("en-GB");
+};
+
+export const fmtTimestamp = d => {
+  if (!d) return "Not specified";
+  const parsed = new Date(d);
+  return isNaN(parsed.getTime()) ? d : parsed.toLocaleString("en-GB", {
+    day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
+  });
+};
 
 export const getMobLivestockCount = mob => {
   if (!mob) return null;

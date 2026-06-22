@@ -216,7 +216,14 @@ export function GrnPreview({ data, mob }) {
         </div>
         <div style={{ width: '50mm', border: '1pt solid #000000', padding: '2mm 3mm', fontSize: '9pt', display: 'flex', alignItems: 'center', gap: '4mm' }}>
           <span style={{ fontWeight: 'bold', color: '#000000' }}>Date</span>
-        <span style={{ flex: 1, fontWeight: 'bold' }}>{new Date(d?.received_date || mob.received_date || Date.now()).toLocaleDateString('en-GB')}</span>
+        <span style={{ flex: 1, fontWeight: 'bold' }}>
+          {(() => {
+            const dt = d?.received_date || mob.received_date;
+            if (!dt) return new Date().toLocaleDateString('en-GB');
+            const parsed = new Date(dt);
+            return isNaN(parsed.getTime()) ? dt : parsed.toLocaleDateString('en-GB');
+          })()}
+        </span>
         </div>
       </div>
 
