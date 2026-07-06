@@ -1,0 +1,9 @@
+node_modules
+vendor
+.git
+.env
+storage/*.key
+public/storage
+tests
+Dockerfile
+.dockerignore
